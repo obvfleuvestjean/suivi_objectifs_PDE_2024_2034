@@ -4,6 +4,8 @@ from datetime import date
 from shiny import App, Inputs, Outputs, Session, render
 from shiny.types import ImgData
 from shiny.express import ui, input
+import shinylive
+import os
 
 # Configuration du thème personnalisé
 theme_obv = (
@@ -20,67 +22,25 @@ theme_obv = (
 today = date.today().strftime("%Y-%m-%d")
 
 
-# Chargement des données
-df = pd.read_excel("2025-2026/2026_01_13-suivi_des_objectifs-OBVFSJ.xlsx", sheet_name=1, header=1)
+# Chargement et travail des données (Excel + retrait des symboles de % sur les deux colonnes pertinentes)
+df = pd.read_excel("suivi-des-objectifs_OBVFSJ.xlsx", sheet_name=1, header=1)
 df["atteinte_cible_pct"] = df["Pourcentage d'atteinte de la cible"].str.replace('%', '').astype(float)
 df["cible_pct"] = df["Cible en %"].str.replace('%', '').astype(float)
 #df["numero_objectif"] = df["Numéro d'objectif"].astype(str) + " — " + df["Libellé de l'objectif"].astype(str)
 
+# Colonnes importantes du Excel :
+    # Objectif = "numero_objectif"
+    # Échéance = "Échéance"
+    # Cible = "Cible - valeur numérique"
+    # Progression = "Résultat"
+    # Date de mise à jour = "Date du résultat"
 
-# Fonctions utilitaires (filtrer par orientation)
-def generer_section(nom_categorie):
-    """Génère automatiquement le contenu d'un onglet basé sur la catégorie"""
-    # Filtrer les données pour cette catégorie
-    df_filtre = df[df["Orientation"] == nom_categorie].copy()
-        # Valeurs possibles :
-            # 1 - Éviter la dégradation de la qualité de l'eau
-            # 2 - Ralentir l'eutrophisation des lacs
-            # 3 - Limiter la prolifération des espèces exotiques envahissantes
-            # 4 - Freiner la perte d'habitat faunique
-            # 5 - Éviter la destruction ou la dégradation de la qualité des milieux humides et hydriques
-    
-    # Conversion forcée en numérique pour éviter les erreurs de calcul
-    df_filtre["atteinte_cible_pct"] = pd.to_numeric(df_filtre["atteinte_cible_pct"], errors="coerce").fillna(0)
-
-    if df_filtre.empty:
-        ui.p("Aucune donnée trouvée pour cette catégorie.")
-        return
-    
-    if nom_categorie == "1 - Éviter la dégradation de la qualité de l'eau":
-        icone = "💧🌊"
-    elif nom_categorie == "2 - Ralentir l'eutrophisation des lacs":
-        icone = "🦠🏞️"
-    elif nom_categorie == "3 - Limiter la prolifération des espèces exotiques envahissantes":
-        icone = "🌾🦪"
-    elif nom_categorie == "4 - Freiner la perte d'habitat faunique":
-        icone = "🐟🦎"
-    elif nom_categorie == "5 - Éviter la destruction ou la dégradation de la qualité des milieux humides et hydriques":
-        icone = "🌿🦆"
-    else:
-        icone = "❓"
-
-    # 3. Calcul de la moyenne
-    moyenne = int(df_filtre["atteinte_cible_pct"].mean())
-    
-    # 4. En-tête de section (Value Box et État)
-
-    ui.HTML(f'''
-        <div class="section-header">
-            <h2>{icone} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne}%</h2>
-            <br><br>
-        </div>
-    ''')
-    
-    if moyenne > 70:
-        ui.p("✅ Les objectifs sont en bonne voie d'être atteints.")
-    elif moyenne > 30:
-        ui.p("⚠️ Des efforts constants sont encore requis.")
-    else:
-        ui.p("🚨 Priorité élevée : phase de planification.")  
-
-    ui.hr()
-    ui.h4("Détails par objectif", style="color: #0083cb; margin-bottom: 20px;")
-
+# Valeurs possibles "Orientation" :
+    # 1 - Éviter la dégradation de la qualité de l'eau
+    # 2 - Ralentir l'eutrophisation des lacs
+    # 3 - Limiter la prolifération des espèces exotiques envahissantes
+    # 4 - Freiner la perte d'habitat faunique
+    # 5 - Éviter la destruction ou la dégradation de la qualité des milieux humides et hydriques
 
 # Configuration de la page
 ui.page_opts(theme=theme_obv, fillable=True)
@@ -104,7 +64,7 @@ ui.head_content(
     """)
 )
 
-# header avec logo + titre + date
+# Header avec logo + titre + date
 ui.HTML(f'''
     <div class="app-header">
       <div>
@@ -115,22 +75,9 @@ ui.HTML(f'''
     </div>
 ''')
 
-# Colonnes importantes du Excel :
-    # Objectif = "numero_objectif"
-    # Échéance = "Échéance"
-    # Cible = "Cible - valeur numérique"
-    # Progression = "Résultat"
-    # Date de mise à jour = "Date du résultat"
-
-# Valeurs possibles "Orientation" :
-    # 1 - Éviter la dégradation de la qualité de l'eau
-    # 2 - Ralentir l'eutrophisation des lacs
-    # 3 - Limiter la prolifération des espèces exotiques envahissantes
-    # 4 - Freiner la perte d'habitat faunique
-    # 5 - Éviter la destruction ou la dégradation de la qualité des milieux humides et hydriques
-
 with ui.navset_card_pill(id="tabs"):
     
+    ### SECTION 0. INTRODUCTION ###
     with ui.nav_panel("Introduction"):
         ui.markdown("""
         ## Démarche de suivi du Plan directeur de l'eau (PDE)
@@ -148,9 +95,8 @@ with ui.navset_card_pill(id="tabs"):
                 </div>
             ''')
 
+    ### SECTION 1. QUALITÉ DE L'EAU ###
     with ui.nav_panel("1. Qualité de l'eau"):
-        generer_section("1 - Éviter la dégradation de la qualité de l'eau")
-        
         df_qualite_eau = df[df["Orientation"] == "1 - Éviter la dégradation de la qualité de l'eau"].copy()
         df_qualite_eau["atteinte_cible_pct"] = pd.to_numeric(df_qualite_eau["atteinte_cible_pct"], errors="coerce").fillna(0)
         icone_qualite_eau = "💧🌊"
@@ -159,9 +105,17 @@ with ui.navset_card_pill(id="tabs"):
         ui.HTML(f'''
             <div class="section-header">
             <br>
-                <h2><b>{icone_qualite_eau} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne_qualite_eau}%</b></h2>
+                <h2><b>{icone_qualite_eau} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne_qualite_eau} %</b></h2>
             </div>
         ''')
+        
+        if moyenne_qualite_eau > 70:
+            ui.p("✅ Les objectifs sont en bonne voie d'être atteints.")
+        elif moyenne_qualite_eau > 30:
+            ui.p("⚠️ Des efforts constants sont encore requis.")
+        else:
+            ui.p("🚨 Priorité élevée : phase de planification.")  
+        
         ui.hr()
         ui.h4("Progression par objectif :", style="color: #0083cb; margin-bottom: 20px;")
         
@@ -172,6 +126,7 @@ with ui.navset_card_pill(id="tabs"):
             resultat = row["Résultat"]
             date_resultat = row["Date du résultat"]
             echeance = row["Échéance"]
+            cible = row["Cible - valeur numérique"]
             
             # Conteneur pour un seul objectif
             with ui.div(style="margin-bottom: 45px; padding: 0 10px;"):
@@ -184,12 +139,13 @@ with ui.navset_card_pill(id="tabs"):
                 # Ligne médiane : Cible, dernier résultat et date du dernier résultat en valeur absolue
                 with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;color: rgba(0, 0, 0, 0.6);font-size: 0.9em;line-height: 1.2;"):
                     ui.span(f"Valeur de référence : {reference}")
+                    ui.span(f"Cible : {cible}")
                     ui.span(f"Valeur au dernier suivi : {resultat}")
-                    ui.span(f"Date du dernier suivi : {date_resultat}")
-                    ui.span(f"Échéance de l'objectif : {echeance}")
+                    ui.span(f"Suivi le : {date_resultat}")
+                    ui.span(f"Échéance : {echeance}")
                 
                 # Ligne inférieure : La barre de progression fine
-                with ui.div(style="width: 100%; background-color: #f0f0f0; height: 8px; border-radius: 4px; overflow: hidden;"):
+                with ui.div(style="width: 100%; background-color: #f0f0f0; height: 12px; border-radius: 4px; overflow: hidden;"):
                     ui.div(style=f"""
                         width: {val}%; 
                         background-color: #0aa6b6; 
@@ -198,35 +154,239 @@ with ui.navset_card_pill(id="tabs"):
                         transition: width 1s ease-in-out;
                     """)                
 
+    ### SECTION 2. EUTROPHISATION DES LACS ###
     with ui.nav_panel("2. Eutrophisation des lacs"):
-        ui.markdown("""
-        ## Démarche de suivi du Plan directeur de l'eau (PDE)
-        Bienvenue sur l'outil de suivi des objectifs du PDE de l'**Organisme de bassin versant du fleuve Saint-Jean** (OBVFSJ).
-        Ce tableau de bord présente l'état d'avancement des **47 objectifs** du PDE 2024-2034 à travers les **5 orientations**.
-        <br><br>
-        """)
+        df_eutrophisation = df[df["Orientation"] == "2 - Ralentir l'eutrophisation des lacs"].copy()
+        df_eutrophisation["atteinte_cible_pct"] = pd.to_numeric(df_eutrophisation["atteinte_cible_pct"], errors="coerce").fillna(0)
+        icone_eutrophisation = "🦠🏞️"
+        moyenne_eutrophisation = int(df_eutrophisation["atteinte_cible_pct"].mean())
+        
+        ui.HTML(f'''
+            <div class="section-header">
+            <br>
+                <h2><b>{icone_eutrophisation} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne_eutrophisation} %</b></h2>
+            </div>
+        ''')
+        
+        if moyenne_eutrophisation > 70:
+            ui.p("✅ Les objectifs sont en bonne voie d'être atteints.")
+        elif moyenne_eutrophisation > 30:
+            ui.p("⚠️ Des efforts constants sont encore requis.")
+        else:
+            ui.p("🚨 Priorité élevée : phase de planification.")  
+        
+        ui.hr()
+        ui.h4("Progression par objectif :", style="color: #0083cb; margin-bottom: 20px;")
+        
+        for _, row in df_eutrophisation.iterrows():
+            val = int(row["atteinte_cible_pct"])
+            libelle = row["Libellé de l'objectif"]
+            reference = row["Valeur(référence)"]
+            resultat = row["Résultat"]
+            date_resultat = row["Date du résultat"]
+            echeance = row["Échéance"]
+            cible = row["Cible - valeur numérique"]
+            
+            # Conteneur pour un seul objectif
+            with ui.div(style="margin-bottom: 45px; padding: 0 10px;"):
+                
+                # Ligne supérieure : Libellé à gauche, Valeur à droite
+                with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2.5px;"):
+                    ui.span(libelle, style="font-weight: 600; color: #333; font-size: 0.95rem;")
+                    ui.span(f"{val}%", style="font-weight: 600; color: #666; font-size: 0.9rem;")
 
+                # Ligne médiane : Cible, dernier résultat et date du dernier résultat en valeur absolue
+                with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;color: rgba(0, 0, 0, 0.6);font-size: 0.9em;line-height: 1.2;"):
+                    ui.span(f"Valeur de référence : {reference}")
+                    ui.span(f"Cible : {cible}")
+                    ui.span(f"Valeur au dernier suivi : {resultat}")
+                    ui.span(f"Suivi le : {date_resultat}")
+                    ui.span(f"Échéance : {echeance}")
+                
+                # Ligne inférieure : La barre de progression fine
+                with ui.div(style="width: 100%; background-color: #f0f0f0; height: 12px; border-radius: 4px; overflow: hidden;"):
+                    ui.div(style=f"""
+                        width: {val}%; 
+                        background-color: #0aa6b6; 
+                        height: 100%; 
+                        border-radius: 4px;
+                        transition: width 1s ease-in-out;
+                    """)   
+
+    ### SECTION 3. ESPÈCES EXOTIQUES ENVAHISSANTES ###
     with ui.nav_panel("3. Espèces exotiques envahissantes"):
-        ui.markdown("""
-        ## Démarche de suivi du Plan directeur de l'eau (PDE)
-        Bienvenue sur l'outil de suivi des objectifs du PDE de l'**Organisme de bassin versant du fleuve Saint-Jean** (OBVFSJ).
-        Ce tableau de bord présente l'état d'avancement des **47 objectifs** du PDE 2024-2034 à travers les **5 orientations**.
-        <br><br>
-        """)
+        df_EEE = df[df["Orientation"] == "3 - Limiter la prolifération des espèces exotiques envahissantes"].copy()
+        df_EEE["atteinte_cible_pct"] = pd.to_numeric(df_EEE["atteinte_cible_pct"], errors="coerce").fillna(0)
+        icone_EEE = "🌾🦪"
+        moyenne_EEE = int(df_EEE["atteinte_cible_pct"].mean())
+        
+        ui.HTML(f'''
+            <div class="section-header">
+            <br>
+                <h2><b>{icone_EEE} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne_EEE} %</b></h2>
+            </div>
+        ''')
+        
+        if moyenne_EEE > 70:
+            ui.p("✅ Les objectifs sont en bonne voie d'être atteints.")
+        elif moyenne_EEE > 30:
+            ui.p("⚠️ Des efforts constants sont encore requis.")
+        else:
+            ui.p("🚨 Priorité élevée : phase de planification.")  
+        
+        ui.hr()
+        ui.h4("Progression par objectif :", style="color: #0083cb; margin-bottom: 20px;")
+        
+        for _, row in df_EEE.iterrows():
+            val = int(row["atteinte_cible_pct"])
+            libelle = row["Libellé de l'objectif"]
+            reference = row["Valeur(référence)"]
+            resultat = row["Résultat"]
+            date_resultat = row["Date du résultat"]
+            echeance = row["Échéance"]
+            cible = row["Cible - valeur numérique"]
+            
+            # Conteneur pour un seul objectif
+            with ui.div(style="margin-bottom: 45px; padding: 0 10px;"):
+                
+                # Ligne supérieure : Libellé à gauche, Valeur à droite
+                with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2.5px;"):
+                    ui.span(libelle, style="font-weight: 600; color: #333; font-size: 0.95rem;")
+                    ui.span(f"{val}%", style="font-weight: 600; color: #666; font-size: 0.9rem;")
 
+                # Ligne médiane : Cible, dernier résultat et date du dernier résultat en valeur absolue
+                with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;color: rgba(0, 0, 0, 0.6);font-size: 0.9em;line-height: 1.2;"):
+                    ui.span(f"Valeur de référence : {reference}")
+                    ui.span(f"Cible : {cible}")
+                    ui.span(f"Valeur au dernier suivi : {resultat}")
+                    ui.span(f"Suivi le : {date_resultat}")
+                    ui.span(f"Échéance : {echeance}")
+                
+                # Ligne inférieure : La barre de progression fine
+                with ui.div(style="width: 100%; background-color: #f0f0f0; height: 12px; border-radius: 4px; overflow: hidden;"):
+                    ui.div(style=f"""
+                        width: {val}%; 
+                        background-color: #0aa6b6; 
+                        height: 100%; 
+                        border-radius: 4px;
+                        transition: width 1s ease-in-out;
+                    """)  
+
+    ### SECTION 4. HABITATS FAUNIQUES ###
     with ui.nav_panel("4. Habitats fauniques"):
-        ui.markdown("""
-        ## Démarche de suivi du Plan directeur de l'eau (PDE)
-        Bienvenue sur l'outil de suivi des objectifs du PDE de l'**Organisme de bassin versant du fleuve Saint-Jean** (OBVFSJ).
-        Ce tableau de bord présente l'état d'avancement des **47 objectifs** du PDE 2024-2034 à travers les **5 orientations**.
-        <br><br>
-        """)
+        df_habitats_fauniques = df[df["Orientation"] == "4 - Freiner la perte d'habitat faunique"].copy()
+        df_habitats_fauniques["atteinte_cible_pct"] = pd.to_numeric(df_habitats_fauniques["atteinte_cible_pct"], errors="coerce").fillna(0)
+        icone_habitats_fauniques = "🐟🦎"
+        moyenne_habitats_fauniques = int(df_habitats_fauniques["atteinte_cible_pct"].mean())
+        
+        ui.HTML(f'''
+            <div class="section-header">
+            <br>
+                <h2><b>{icone_habitats_fauniques} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne_habitats_fauniques} %</b></h2>
+            </div>
+        ''')
+        
+        if moyenne_habitats_fauniques > 70:
+            ui.p("✅ Les objectifs sont en bonne voie d'être atteints.")
+        elif moyenne_habitats_fauniques > 30:
+            ui.p("⚠️ Des efforts constants sont encore requis.")
+        else:
+            ui.p("🚨 Priorité élevée : phase de planification.")  
+        
+        ui.hr()
+        ui.h4("Progression par objectif :", style="color: #0083cb; margin-bottom: 20px;")
+        
+        for _, row in df_habitats_fauniques.iterrows():
+            val = int(row["atteinte_cible_pct"])
+            libelle = row["Libellé de l'objectif"]
+            reference = row["Valeur(référence)"]
+            resultat = row["Résultat"]
+            date_resultat = row["Date du résultat"]
+            echeance = row["Échéance"]
+            cible = row["Cible - valeur numérique"]
+            
+            # Conteneur pour un seul objectif
+            with ui.div(style="margin-bottom: 45px; padding: 0 10px;"):
+                
+                # Ligne supérieure : Libellé à gauche, Valeur à droite
+                with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2.5px;"):
+                    ui.span(libelle, style="font-weight: 600; color: #333; font-size: 0.95rem;")
+                    ui.span(f"{val}%", style="font-weight: 600; color: #666; font-size: 0.9rem;")
 
+                # Ligne médiane : Cible, dernier résultat et date du dernier résultat en valeur absolue
+                with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;color: rgba(0, 0, 0, 0.6);font-size: 0.9em;line-height: 1.2;"):
+                    ui.span(f"Valeur de référence : {reference}")
+                    ui.span(f"Cible : {cible}")
+                    ui.span(f"Valeur au dernier suivi : {resultat}")
+                    ui.span(f"Suivi le : {date_resultat}")
+                    ui.span(f"Échéance : {echeance}")
+                
+                # Ligne inférieure : La barre de progression fine
+                with ui.div(style="width: 100%; background-color: #f0f0f0; height: 12px; border-radius: 4px; overflow: hidden;"):
+                    ui.div(style=f"""
+                        width: {val}%; 
+                        background-color: #0aa6b6; 
+                        height: 100%; 
+                        border-radius: 4px;
+                        transition: width 1s ease-in-out;
+                    """)  
+
+    ### SECTION 5. MILIEUX HUMIDES ET HYDRIQUES ###
     with ui.nav_panel("5. Milieux humides et hydriques"):
-        ui.markdown("""
-        ## Démarche de suivi du Plan directeur de l'eau (PDE)
-        Bienvenue sur l'outil de suivi des objectifs du PDE de l'**Organisme de bassin versant du fleuve Saint-Jean** (OBVFSJ).
-        Ce tableau de bord présente l'état d'avancement des **47 objectifs** du PDE 2024-2034 à travers les **5 orientations**.
-        <br><br>
-        """)
+        df_MHH = df[df["Orientation"] == "5 - Éviter la destruction ou la dégradation de la qualité des milieux humides et hydriques"].copy()
+        df_MHH["atteinte_cible_pct"] = pd.to_numeric(df_MHH["atteinte_cible_pct"], errors="coerce").fillna(0)
+        icone_MHH = "🌿🦆"
+        moyenne_MHH = int(df_MHH["atteinte_cible_pct"].mean())
+        
+        ui.HTML(f'''
+            <div class="section-header">
+            <br>
+                <h2><b>{icone_MHH} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne_MHH} %</b></h2>
+            </div>
+        ''')
+        
+        if moyenne_MHH > 70:
+            ui.p("✅ Les objectifs sont en bonne voie d'être atteints.")
+        elif moyenne_MHH > 30:
+            ui.p("⚠️ Des efforts constants sont encore requis.")
+        else:
+            ui.p("🚨 Priorité élevée : phase de planification.")  
+        
+        ui.hr()
+        ui.h4("Progression par objectif :", style="color: #0083cb; margin-bottom: 20px;")
+        
+        for _, row in df_MHH.iterrows():
+            val = int(row["atteinte_cible_pct"])
+            libelle = row["Libellé de l'objectif"]
+            reference = row["Valeur(référence)"]
+            resultat = row["Résultat"]
+            date_resultat = row["Date du résultat"]
+            echeance = row["Échéance"]
+            cible = row["Cible - valeur numérique"]
+            
+            # Conteneur pour un seul objectif
+            with ui.div(style="margin-bottom: 45px; padding: 0 10px;"):
+                
+                # Ligne supérieure : Libellé à gauche, Valeur à droite
+                with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2.5px;"):
+                    ui.span(libelle, style="font-weight: 600; color: #333; font-size: 0.95rem;")
+                    ui.span(f"{val}%", style="font-weight: 600; color: #666; font-size: 0.9rem;")
+
+                # Ligne médiane : Cible, dernier résultat et date du dernier résultat en valeur absolue
+                with ui.div(style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;color: rgba(0, 0, 0, 0.6);font-size: 0.9em;line-height: 1.2;"):
+                    ui.span(f"Valeur de référence : {reference}")
+                    ui.span(f"Cible : {cible}")
+                    ui.span(f"Valeur au dernier suivi : {resultat}")
+                    ui.span(f"Suivi le : {date_resultat}")
+                    ui.span(f"Échéance : {echeance}")
+                
+                # Ligne inférieure : La barre de progression fine
+                with ui.div(style="width: 100%; background-color: #f0f0f0; height: 12px; border-radius: 4px; overflow: hidden;"):
+                    ui.div(style=f"""
+                        width: {val}%; 
+                        background-color: #0aa6b6; 
+                        height: 100%; 
+                        border-radius: 4px;
+                        transition: width 1s ease-in-out;
+                    """) 
 
