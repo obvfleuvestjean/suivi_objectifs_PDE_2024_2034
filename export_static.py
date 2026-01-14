@@ -8,14 +8,15 @@ DATAFILE = ROOT / "suivi-des-objectifs_OBVFSJ.xlsx"
 OUTDIR = ROOT / "docs"
 OUTDIR.mkdir(parents=True, exist_ok=True)
 today = date.today().strftime("%Y-%m-%d")
+year = date.today().year
 
 NAV_LINKS = [
     ("index.html", "Introduction"),
     ("orientation-1.html", "1. Qualité de l'eau"),
-    ("orientation-2.html", "2. Eutrophisation des lacs"),
-    ("orientation-3.html", "3. Espèces exotiques envahissantes"),
+    ("orientation-2.html", "2. Eutrophisation"),
+    ("orientation-3.html", "3. Espèces envahissantes"),
     ("orientation-4.html", "4. Habitats fauniques"),
-    ("orientation-5.html", "5. Milieux humides et hydriques"),
+    ("orientation-5.html", "5. Milieux humides"),
 ]
 
 ORIENTATIONS = {
@@ -27,12 +28,12 @@ ORIENTATIONS = {
 }
 
 BASE_CSS = """
-body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #222; margin: 18px; }
+body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #003f5b; margin: 18px; }
 .header { display:flex; align-items:center; justify-content:space-between }
 .header img { height:64px }
 .nav { margin-top:12px; margin-bottom:20px }
 .nav a { margin-right:12px; color:#0083cb; text-decoration:none; font-weight:600 }
-.section-header { color:#0aa6b6; font-size:20px; font-weight:bold; margin-top:12px }
+.section-header { text-align:center; color:#0aa6b6; font-size:20px; font-weight:bold; margin-top:12px }
 .card { border:1px solid #e6eef0; border-radius:6px; padding:12px; background:#fff; margin-bottom:18px }
 .progress-bg { width:100%; background:#f0f0f0; height:12px; border-radius:4px; overflow:hidden }
 .progress { height:100%; background:#0aa6b6; border-radius:4px }
@@ -89,7 +90,7 @@ def build_page(title, body_html, active_href):
     <body>
       <div class="header">
         <div>
-          <h1 style="margin:0">OBVFSJ - Suivi des objectifs du PDE 2024-2034</h1>
+          <h1 style="margin:0;color:#003f5b">OBVFSJ - Tableau de bord du suivi des objectifs du PDE</h1>
           <div class="meta">Dernière mise à jour : {today}</div>
         </div>
         <img src="https://obvfleuvestjean.com/wp-content/uploads/2026/01/LogoOBV_ContourBlanc.png" alt="Logo">
@@ -113,14 +114,16 @@ def main():
     df['cible_pct'] = df['Cible en %'].astype(str).str.replace('%','', regex=False)
 
     # Index (Introduction)
-    intro_html = """
-    <hr><p>Bienvenue sur l'outil de suivi des objectifs du PDE 2024-2034 de l'<strong>Organisme de bassin versant du fleuve Saint-Jean</strong>. Ce tableau de bord présente l'état d'avancement des <strong>47 objectifs</strong> du PDE à travers les <strong>5 orientations</strong> qui ont été définies en concertation avec les acteurs de l'eau de la zone de gestion intégrée de l'eau du bassin versant du fleuve Saint-Jean.</p>
-    <p>Pour de plus amples informations sur le territoire couvert par notre action collective, consultez la page suivante : <a href="https://obvfleuvestjean.com/un-bassin-versant-transfrontalier/">obvfleuvestjean.com/un-bassin-versant-transfrontalier/</a>.</p><hr>
+    intro_html = f"""
+    <hr><p style="color:#003f5b;">Bienvenue sur l'outil de suivi des objectifs du PDE 2024-2034 de l'<strong>Organisme de bassin versant du fleuve Saint-Jean</strong>. Ce tableau de bord présente l'état d'avancement des <strong>47 objectifs</strong> du PDE à travers les <strong>5 orientations</strong> qui ont été définies en concertation avec les acteurs de l'eau de la zone de gestion intégrée de l'eau du bassin versant du fleuve Saint-Jean.</p>
+    <p style="color:#003f5b;">Pour de plus amples informations sur le territoire couvert par notre action collective, consultez la page suivante : <a href="https://obvfleuvestjean.com/un-bassin-versant-transfrontalier/">obvfleuvestjean.com/un-bassin-versant-transfrontalier/</a>.</p><hr>
 
     <div class="card">
-      <h2 style="text-align:center;margin-top:0">Mission de l'OBVFSJ</h2>
+      <h2 style="text-align:center;margin-top:0;color:#0083cb"><u>Mission de l'OBVFSJ</u></h2>
       <p style="text-align:center;color:#555"><em>« Dans le bassin versant du fleuve Saint-Jean, le maintien d'écosystèmes intègres, source d'une excellente qualité d'eau, constitue la base d'un héritage bâti sur de saines relations transfrontalières »</em></p>
     </div>
+    <hr>
+    <p style="font-size:0.9rem;color:#666;text-align:center;">Copyright © {year} par l'<a href="https://obvfleuvestjean.com/">OBV du fleuve Saint-Jean</a> sous license <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/nc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/sa.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"></p>
     """
 
     (OUTDIR / 'index.html').write_text(build_page('Introduction', intro_html, 'index.html'), encoding='utf-8')
@@ -131,31 +134,25 @@ def main():
         df_o['atteinte_cible_pct'] = pd.to_numeric(df_o['atteinte_cible_pct'], errors='coerce').fillna(0)
         moyenne = int(df_o['atteinte_cible_pct'].mean()) if len(df_o)>0 else 0
 
-        body = f"<hr><div class=\"section-header\">{icon} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne} %</div>"
+        body = f'<hr><h2 style="color:#003f5b;text-align:center;margin-top:20px"><b><u>Orientation {orientation}</b></u></h2>'
+        body += f"<div class=\"section-header\">{icon} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne} %</div>"
         if moyenne > 70:
-            body += "<p>✅ Les objectifs sont en bonne voie d'être atteints.</p>"
+            body += """<p style="text-align:center;">✅ Les objectifs sont en bonne voie d'être atteints.</p>"""
         elif moyenne > 30:
-            body += "<p>⚠️ Des efforts constants sont encore requis.</p>"
+            body += """<p style="text-align:center;">⚠️ Des efforts constants sont encore requis.</p>"""
         else:
-            body += "<p>🚨 Priorité élevée : phase de planification.</p>"
+            body += """<p style="text-align:center;">🚨 Priorité élevée : phase de planification.</p>"""
 
-        body += '<hr><h4><u>Progression par objectif :</u></h4>'
+        body += '<hr><h4 style="text-align: center;color:#003f5b;"><u>Progression par objectif</u></h4>'
         for _, row in df_o.iterrows():
             body += render_item(row)
-
+        body += '<hr>'
+        body += f'''<p style="font-size:0.9rem;color:#666;text-align:center;">Copyright © {year} par l'<a href="https://obvfleuvestjean.com/">OBV du fleuve Saint-Jean</a> sous license <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/nc.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"><img src="https://mirrors.creativecommons.org/presskit/icons/sa.svg" alt="" style="max-width: 1em;max-height:1em;margin-left: .2em;"></p>'''
         (OUTDIR / filename).write_text(build_page(filename.replace('.html',''), body, filename), encoding='utf-8')
 
     # README with publish instructions
     readme = """
     # PDE static export
-
-    Files generated in this folder are suitable for publishing with GitHub Pages (put the containing `pde-static/` folder in `docs/` or serve the whole `docs/`).
-
-    To embed on your site (iframe):
-
-    <iframe src="https://<your-github-username>.github.io/<repo-name>/pde-static/index.html" width="100%" height="900" frameborder="0"></iframe>
-
-    Regenerate these files after you update `suivi-des-objectifs_OBVFSJ.xlsx` by running `python export_static.py`.
     """
 
     (OUTDIR / 'README.md').write_text(readme, encoding='utf-8')
