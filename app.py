@@ -4,8 +4,7 @@ from datetime import date
 from shiny import App, Inputs, Outputs, Session, render
 from shiny.types import ImgData
 from shiny.express import ui, input
-import shinylive
-import os
+
 
 # Configuration du thème personnalisé
 theme_obv = (
