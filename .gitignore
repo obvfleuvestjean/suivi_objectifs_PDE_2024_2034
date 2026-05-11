@@ -1,10 +1,8 @@
 # Fichiers de suivi precedents
 2024-2025/
 
-
 # Application Shiny désuète
-app.py
-build.py
+archives/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
