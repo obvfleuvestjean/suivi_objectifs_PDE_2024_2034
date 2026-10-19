@@ -71,7 +71,7 @@ def render_item(row):
         <div>Suivi le : {date_resultat}</div>
         <div>Échéance : {echeance}</div>
       </div>
-      <div class="progress-bg"><div class="progress" style="width:{val}%;"></div></div>
+      <div class="progress-bg"><div class="progress" style="width:{min(val, 100)}%;"></div></div>
     </div>
     """
     return html
@@ -132,10 +132,12 @@ def main():
     for orientation, (filename, icon) in ORIENTATIONS.items():
         df_o = df[df['Orientation'] == orientation].copy()
         df_o['atteinte_cible_pct'] = pd.to_numeric(df_o['atteinte_cible_pct'], errors='coerce').fillna(0)
-        moyenne = int(df_o['atteinte_cible_pct'].mean()) if len(df_o)>0 else 0
+        # Un objectif dont la cible est dépassée compte pour 100 % dans la moyenne, arrondie à l'unité
+        moyenne = round(df_o['atteinte_cible_pct'].clip(upper=100).mean()) if len(df_o)>0 else 0
 
         body = f'<hr><h2 style="color:#003f5b;text-align:center;margin-top:20px"><b><u>Orientation {orientation}</b></u></h2>'
         body += f"<div class=\"section-header\">{icon} Moyenne d'atteinte des objectifs pour cette orientation : {moyenne} %</div>"
+        body += '<p style="text-align:center;color:#666;font-size:0.9rem;">Dans cette moyenne, un objectif dont la cible est dépassée compte pour 100 %.</p>'
         if moyenne > 70:
             body += """<p style="text-align:center;">✅ Les objectifs sont en bonne voie d'être atteints.</p>"""
         elif moyenne > 30:
